@@ -113,15 +113,15 @@
   // ---- the screen
   function build() {
     app.textContent = "";
-    var band = h("div", { cls: "band" }, h("h1", null, "Cement Calc", h("span", { cls: "sub", text: "dump bailer · volume, runs, new TOC" })),
+    var band = h("div", { cls: "band" }, h("h1", null, "Cement Calc", h("span", { cls: "sub" }, h("b", { text: "DUMP BAILER" }), " · volume · runs · TOC")),
       h("div", { cls: "units" }, ["ft", "m"].map(function (u) {
         return h("button", { "aria-pressed": String(S.depth === u), text: u, on: { click: function () { switchDepth(u); } } });
       })));
     // the answer
     var big = h("div", { cls: "big" }), runs = h("div", { cls: "runs" }), kv = h("dl", { cls: "kv" }), volBox = h("div"), wait = h("div", { cls: "wait" });
     var volChips = chipRow(Object.keys(VOL).map(function (k) { return [k, VOL[k][1]]; }), S.vol, function (k) { S.vol = k; recalc(); });
-    var res = h("div", { cls: "card res" }, h("div", { cls: "spread" }, h("div", { cls: "sec", text: "Cement needed" }),
-      h("button", { cls: "link", text: "Report ›", on: { click: openReport } })), wait, big, runs, h("div", { cls: "sec", text: "in every unit" }), volBox, volChips, kv);
+    var res = h("div", { cls: "card res" }, h("div", { cls: "spread" }, h("div", { cls: "sec", text: "Cement volume required" }),
+      h("button", { cls: "link", text: "View report ›", on: { click: openReport } })), wait, big, runs, h("div", { cls: "sec", text: "Volume in all units" }), volBox, volChips, kv);
 
     // 1. the pipe at the plug
     var sizeSel = h("select", { cls: "in", id: "sz" }), wtSel = h("select", { cls: "in", id: "wt" });
@@ -156,7 +156,7 @@
       var id = toIn(toNum(S.id));
       idHint.textContent = id ? ((table()[S.size] && S.wt) ? (LABEL[S.size] || S.size + "\"") + " " + S.wt + " lb/ft " + S.kind + " · " : "")
         + "ID " + f(id, 3) + "\" (" + f(id * IN, 1) + " mm) holds " + f(CASING_K * id * id, 2) + " L per ft · " + f(CASING_K * id * id / FT, 2) + " L per m"
-        : "Pick the size and weight, or type the ID yourself (a liner, a nipple, an odd pipe).";
+        : "Select the size and weight, or enter the ID manually (liner, nipple, non-API pipe).";
     }
     sizeSel.addEventListener("change", function () { S.size = sizeSel.value; S.wt = ""; fillWt(); idLine(); recalc(); });
     wtSel.addEventListener("change", function () { S.wt = wtSel.value; setIdFromTable(); idLine(); recalc(); });
@@ -165,7 +165,7 @@
       fillSize(); fillWt(); idLine(); recalc(); if (k === "other") idIn.focus();
     });
     fillSize(); fillWt(); idLine();
-    var pipe = h("div", { cls: "card" }, h("div", { cls: "sec", text: "Pipe at the plug" }), kindChips,
+    var pipe = h("div", { cls: "card" }, h("div", { cls: "sec", text: "Casing / tubing at plug depth" }), kindChips,
       h("div", { cls: "grid2" }, h("label", { cls: "f", "for": "sz" }, "Size", sizeSel), h("label", { cls: "f", "for": "wt" }, "Weight", wtSel)),
       h("label", { cls: "f", "for": "id" }, "ID (free to type)", idIn), idUnit, idHint);
 
@@ -180,9 +180,9 @@
     });
     top = numIn("top", du(), S.top, function (v) { S.top = v; hgt.value = hv(); recalc(); });
     hgt = numIn("hgt", du(), hv(), function (v) { var b = toNum(S.bottom), x = toNum(v); if (b != null && x != null) { S.top = String(Math.round((b - x) * 100) / 100); top.value = S.top; } recalc(); });
-    var plug = h("div", { cls: "card" }, h("div", { cls: "sec", text: "The plug · " + du() }),
-      h("div", { cls: "grid3" }, h("label", { cls: "f", "for": "bot" }, "Bottom", bot), h("label", { cls: "f", "for": "top" }, "New top (TOC)", top), h("label", { cls: "f", "for": "hgt" }, "Height", hgt)),
-      h("div", { cls: "hint", text: "Bottom and new top, or bottom and height. Depths along the hole." }));
+    var plug = h("div", { cls: "card" }, h("div", { cls: "sec", text: "Plug interval · " + du() }),
+      h("div", { cls: "grid3" }, h("label", { cls: "f", "for": "bot" }, "Plug bottom", bot), h("label", { cls: "f", "for": "top" }, "Target TOC", top), h("label", { cls: "f", "for": "hgt" }, "Plug length", hgt)),
+      h("div", { cls: "hint", text: "Enter the plug bottom and the target TOC, or the bottom and the plug length. Measured depths." }));
 
     // 3. the bailer
     var blrOther = numIn("blr", "ID " + S.idu, S.blrOther, function (v) { S.blrOther = v; recalc(); });
@@ -199,8 +199,8 @@
     var fitLine = h("div", { cls: "hint" });
     function fit() {
       var o = toNum(S.od), r = toNum(S.restr);
-      if (o != null && r != null) { fitLine.className = r <= o ? "note bad" : "hint"; fitLine.textContent = r <= o ? "⚠ a " + o + " " + S.idu + " OD bailer will NOT pass a " + r + " " + S.idu + " restriction - wrong bailer" : "the " + o + " " + S.idu + " OD bailer passes the " + r + " " + S.idu + " restriction"; }
-      else { fitLine.className = "hint"; fitLine.textContent = "Optional: the bailer OD and the smallest ID it must pass (a nipple, the tubing)."; }
+      if (o != null && r != null) { fitLine.className = r <= o ? "note bad" : "hint"; fitLine.textContent = r <= o ? "⚠ a " + o + " " + S.idu + " OD bailer will NOT pass the " + r + " " + S.idu + " restriction - wrong bailer" : "the " + o + " " + S.idu + " OD bailer passes the " + r + " " + S.idu + " restriction"; }
+      else { fitLine.className = "hint"; fitLine.textContent = "Optional: bailer OD and the minimum restriction above the plug (nipple, tubing)."; }
     }
     fit();
     var bailer = h("div", { cls: "card" }, h("div", { cls: "sec", text: "Dump bailer" }),
@@ -209,14 +209,14 @@
       h("div", { cls: "grid2" }, h("label", { cls: "f", "for": "od" }, "Bailer OD · " + S.idu, od), h("label", { cls: "f", "for": "re" }, "Restriction · " + S.idu, restr)), fitLine);
 
     // 4. which bailer: every bailer against this plug
-    var cmpBody = h("tbody"), cmpNote = h("div", { cls: "hint", text: "Tap a bailer to plan with it." });
-    var cmp = h("div", { cls: "card" }, h("div", { cls: "sec", text: "Which bailer" }),
+    var cmpBody = h("tbody"), cmpNote = h("div", { cls: "hint", text: "Tap a row to use that bailer for the job." });
+    var cmp = h("div", { cls: "card" }, h("div", { cls: "sec", text: "Bailer comparison" }),
       h("table", { cls: "cmp" }, h("thead", null, h("tr", null, h("th", { text: "Bailer ID" }), h("th", { text: "Per run" }), h("th", { text: "Runs" }))), cmpBody), cmpNote);
 
     // 5. on the job
     var doneN = h("span", { cls: "n", text: String(S.done || 0) }), doneLine = h("div", { cls: "hint" });
     function bump(d) { S.done = Math.max(0, (S.done || 0) + d); doneN.textContent = String(S.done); recalc(); }
-    var onjob = h("div", { cls: "card" }, h("div", { cls: "sec", text: "On the job" }),
+    var onjob = h("div", { cls: "card" }, h("div", { cls: "sec", text: "Job progress" }),
       h("div", { cls: "cnt" }, h("button", { cls: "btn ghost sm", text: "−", "aria-label": "one run less", on: { click: function () { bump(-1); } } }),
         h("span", { cls: "lab" }, "runs dumped ", doneN), h("button", { cls: "btn sm", text: "+ 1 run", on: { click: function () { bump(1); } } })), doneLine);
 
@@ -231,7 +231,7 @@
       el.addEventListener("input", function () { S.job[key] = el.value; save(); });
       return h("label", { cls: "f", "for": id }, lab, el);
     }
-    var job = h("div", { cls: "card" }, h("div", { cls: "sec", text: "Job data · for the report" }),
+    var job = h("div", { cls: "card" }, h("div", { cls: "sec", text: "Job data (for the report)" }),
       h("div", { cls: "grid2" },
         txt("j-client", "client", "Client"), txt("j-well", "well", "Well", { autocapitalize: "characters" }),
         txt("j-field", "field", "Field / area"), txt("j-ref", "ref", "Request / job no."),
@@ -240,12 +240,12 @@
       txt("j-rem", "remarks", "Remarks", { type: "area", rows: "2", placeholder: "anything the report should say" }),
       h("button", { cls: "btn", text: "Generate report", on: { click: openReport } }));
 
-    var reset = h("button", { cls: "link", text: "Start again", on: { click: function () {
+    var reset = h("button", { cls: "link", text: "New calculation", on: { click: function () {
       S = { depth: S.depth, idu: S.idu, vol: S.vol, kind: "casing", size: "", wt: "", id: "", bottom: "", top: "", blr: "2", blrOther: "", len: "40", lenOther: "", od: "", restr: "", done: 0, job: blankJob(S.job) };
       save(); build();
     } } });
     var foot = h("div", { cls: "foot" }, h("div", { cls: "spread" }, h("span", { text: "Capacity 158.987 / 1029.45 L per ft per in² · the last run rounded up to " + (S.depth === "m" ? "1 m" : "5 ft") + " joints." }), reset),
-      h("div", { text: "Works without signal · a Deskmation Labs product" }));
+      h("div", { text: "Works offline · a Deskmation Labs product" }));
 
     function recalc() {
       save();
@@ -260,18 +260,18 @@
       runs.textContent = r.total_runs + (r.total_runs === 1 ? " run" : " runs") + " · " + [r.full_runs ? r.full_runs + " × " + f(fromFt(r.run_len), 0) + " " + du() : "", r.last_ft ? "1 × " + f(fromFt(r.last_ft), S.depth === "m" ? 1 : 0) + " " + du() : ""].filter(Boolean).join(" + ")
         + " of " + f(i.blr, i.blr === Math.round(i.blr * 10) / 10 ? 1 : 2) + "\" bailer";
       volBox.textContent = ""; volBox.appendChild(volAll(r.req_lts));
-      dd(kv, [["Plug", dep(r.height) + " in ID " + f(i.csg, 3) + "\"", f(r.csg_ft, 2) + " L per ft of pipe"],
-        r.full_runs ? ["Each " + f(fromFt(r.run_len), 0) + " " + du() + " run", vol(r.one_run_lts), "covers " + dep(r.cover_long, 2)] : null,
-        r.last_ft ? ["The " + f(fromFt(r.last_ft), S.depth === "m" ? 1 : 0) + " " + du() + " run", vol(r.last_lts), "covers " + dep(r.cover_last, 2)] : null,
-        ["Dumped in all", vol(r.total_lts), r.total_runs + (r.total_runs === 1 ? " run" : " runs")],
-        ["Cemented", dep(r.cemented_ft, 2), "new TOC " + dep(r.new_toc, 1)],
-        [r.over_ft >= 0 ? "Above the target" : "Short of the target", S.depth === "m" ? f(Math.abs(r.over_ft) * FT * 100, 0) + " cm" : f(Math.abs(r.over_ft) * 12, 1) + " in"]]);
+      dd(kv, [["Plug interval", dep(r.height) + " in ID " + f(i.csg, 3) + "\"", f(r.csg_ft, 2) + " L per ft of casing / tubing"],
+        r.full_runs ? ["Per full run (" + f(fromFt(r.run_len), 0) + " " + du() + ")", vol(r.one_run_lts), "fills " + dep(r.cover_long, 2)] : null,
+        r.last_ft ? ["Last run (" + f(fromFt(r.last_ft), S.depth === "m" ? 1 : 0) + " " + du() + ")", vol(r.last_lts), "fills " + dep(r.cover_last, 2)] : null,
+        ["Total dumped", vol(r.total_lts), r.total_runs + (r.total_runs === 1 ? " run" : " runs")],
+        ["Cement column", dep(r.cemented_ft, 2), "theoretical TOC " + dep(r.new_toc, 1)],
+        [r.over_ft >= 0 ? "Excess over target" : "Short of target", S.depth === "m" ? f(Math.abs(r.over_ft) * FT * 100, 0) + " cm" : f(Math.abs(r.over_ft) * 12, 1) + " in"]]);
       fillCmp(i, r);
       var d = Math.min(S.done || 0, r.total_runs), ftDone = 0;
       for (var k = 0; k < d; k++) ftDone += (k < r.full_runs ? r.one_run_lts : r.last_lts) / r.csg_ft;
-      doneLine.textContent = !S.done ? "Count the runs as they are dumped: the theoretical top of cement follows."
+      doneLine.textContent = !S.done ? "Count each run as it is dumped to follow the theoretical TOC."
         : (S.done > r.total_runs ? "⚠ " + S.done + " runs is more than the plan. " : "") + d + " of " + r.total_runs + " dumped · " + dep(ftDone, 2) + " cemented · theoretical TOC " + dep(r.new_toc + (r.cemented_ft - ftDone), 1)
-          + (r.total_runs - d > 0 ? " · " + (r.total_runs - d) + " to go" : " · done, tag the TOC");
+          + (r.total_runs - d > 0 ? " · " + (r.total_runs - d) + " to go" : " · all runs dumped, tag the TOC");
     }
     function fillCmp(i) {
       var list = BAILERS.slice(), cur = S.blr === "other" ? S.blrOther : S.blr;
@@ -325,20 +325,20 @@
   function lenText(ft) { return f(fromFt(ft), S.depth === "m" ? 1 : 0) + " " + du(); }
   function planText(r, blr) {
     return [r.full_runs ? r.full_runs + " × " + lenText(r.run_len) : "", r.last_ft ? "1 × " + lenText(r.last_ft) : ""].filter(Boolean).join(" + ")
-      + " of the " + f(blr, 2) + " in bailer";
+      + " with the " + f(blr, 2) + " in bailer";
   }
   function againstText(r) {
     var x = Math.abs(r.over_ft), t = S.depth === "m" ? f(x * FT * 100, 0) + " cm" : f(x * 12, 1) + " in";
-    return t + (r.over_ft >= 0 ? " above the target top" : " short of the target top");
+    return t + (r.over_ft >= 0 ? " above target TOC" : " below target TOC (short)");
   }
   function buildReport() {
     app.textContent = "";
     var i = inputs(), r = calc(i.csg, i.blr, i.bottom, i.top, i.len, i.joint), J = S.job || blankJob();
     var bar = h("div", { cls: "band noprint" },
       h("button", { cls: "back", "aria-label": "Back to the calculator", text: "‹", on: { click: backToCalc } }),
-      h("h1", null, "Report", h("span", { cls: "sub", text: [J.well, dayText(J.date)].filter(Boolean).join(" · ") || "dump-bailer cement plug" })));
+      h("h1", null, "Cement report", h("span", { cls: "sub" }, J.well ? h("b", { text: J.well }) : null, (J.well ? " · " : "") + (dayText(J.date) || "dump bailer cement plug"))));
     if (r.error) {
-      add(app, [bar, h("div", { cls: "card" }, h("div", { cls: "note", text: "The report needs a finished calculation. " + r.error }),
+      add(app, [bar, h("div", { cls: "card" }, h("div", { cls: "note", text: "Complete the calculation first. " + r.error }),
         h("button", { cls: "btn", text: "Back to the calculator", on: { click: backToCalc } }))]);
       return;
     }
@@ -363,29 +363,29 @@
     }
 
     // ---- 1. request / job data
-    var s1 = section(1, "Request / job data", [
+    var s1 = section(1, "Request / Job Data", [
       grid([["Client", J.client], ["Well", J.well], ["Field / area", J.field], ["Request / job no.", J.ref],
         ["Unit / rig", J.unit], ["Date", dayText(J.date)], ["Prepared by", J.by]]),
-      sub("Well data at the plug"),
-      grid([["Pipe at the plug", pipeText()], ["Pipe ID", inch(i.csg)], ["Plug bottom", dep(i.bottom, 2)], ["Target top of cement", dep(i.top, 2)],
-        ["Plug height", dep(r.height, 2)], ["Restriction above the plug", re != null ? f(re, S.idu === "mm" ? 1 : 3) + " " + S.idu : ""]]),
+      sub("Well data at plug depth"),
+      grid([["Casing / tubing", pipeText()], ["Pipe ID", inch(i.csg)], ["Plug bottom", dep(i.bottom, 2)], ["Target TOC", dep(i.top, 2)],
+        ["Plug length", dep(r.height, 2)], ["Min. restriction above plug", re != null ? f(re, S.idu === "mm" ? 1 : 3) + " " + S.idu : ""]]),
       J.remarks ? h("p", { cls: "rem" }, h("b", { text: "Remarks: " }), J.remarks) : null]);
 
     // ---- 2. calculations and bailers used
-    var fit = od != null && re != null ? (re <= od ? "NO - the " + od + " " + S.idu + " OD does not pass the " + re + " " + S.idu + " restriction" : "Yes - " + od + " " + S.idu + " OD through " + re + " " + S.idu) : "";
+    var fit = od != null && re != null ? (re <= od ? "FAIL - the " + od + " " + S.idu + " OD does not pass the " + re + " " + S.idu + " restriction" : "PASS - " + od + " " + S.idu + " OD through " + re + " " + S.idu) : "";
     var steps = [
-      ["1", "Pipe capacity", f(Kp, 6) + " × ID² = " + f(Kp, 6) + " × " + f(i.csg, 3) + "²", f(cp, 3) + " " + perDu],
+      ["1", "Casing / tubing capacity", f(Kp, 6) + " × ID² = " + f(Kp, 6) + " × " + f(i.csg, 3) + "²", f(cp, 3) + " " + perDu],
       ["2", "Bailer capacity", f(Kb, 6) + " × ID² = " + f(Kb, 6) + " × " + f(i.blr, 3) + "²", f(cb, 3) + " " + perDu],
-      ["3", "Cement required", "plug height × pipe capacity = " + f(fromFt(r.height), 2) + " × " + f(cp, 3), f(r.req_lts, 2) + " L"],
-      ["4", "One full run", "run length × bailer capacity = " + f(fromFt(r.run_len), 2) + " × " + f(cb, 3), f(r.one_run_lts, 2) + " L"],
-      ["5", "Runs needed", "required ÷ one run = " + f(r.req_lts, 2) + " ÷ " + f(r.one_run_lts, 2), f(runsFrac, 3)],
-      ["6", "Full runs", "whole number of step 5", String(r.full_runs)],
-      ["7", "Last run", "(" + f(runsFrac, 3) + " − " + r.full_runs + ") × " + f(fromFt(r.run_len), 2) + " = " + f(fromFt(lastTheo), 2) + " " + du() + ", up to whole " + jointText() + " joints", r.last_ft ? lenText(r.last_ft) : "none"],
+      ["3", "Required cement volume", "plug length × capacity = " + f(fromFt(r.height), 2) + " × " + f(cp, 3), f(r.req_lts, 2) + " L"],
+      ["4", "Volume per full run", "run length × bailer capacity = " + f(fromFt(r.run_len), 2) + " × " + f(cb, 3), f(r.one_run_lts, 2) + " L"],
+      ["5", "Runs required (exact)", "required volume ÷ volume per run = " + f(r.req_lts, 2) + " ÷ " + f(r.one_run_lts, 2), f(runsFrac, 3)],
+      ["6", "Full runs", "integer part of step 5", String(r.full_runs)],
+      ["7", "Last run length", "(" + f(runsFrac, 3) + " − " + r.full_runs + ") × " + f(fromFt(r.run_len), 2) + " = " + f(fromFt(lastTheo), 2) + " " + du() + ", rounded up to " + jointText() + " joints", r.last_ft ? lenText(r.last_ft) : "none"],
       ["8", "Last run volume", "last run × bailer capacity = " + f(fromFt(r.last_ft), 2) + " × " + f(cb, 3), f(r.last_lts, 2) + " L"],
-      ["9", "Cement dumped", "full runs × one run + last run = " + r.full_runs + " × " + f(r.one_run_lts, 2) + " + " + f(r.last_lts, 2), f(r.total_lts, 2) + " L"],
-      ["10", "Cemented height", "dumped ÷ pipe capacity = " + f(r.total_lts, 2) + " ÷ " + f(cp, 3), dep(r.cemented_ft, 2)],
-      ["11", "New top of cement", "plug bottom − cemented height = " + f(fromFt(i.bottom), 2) + " − " + f(fromFt(r.cemented_ft), 2), dep(r.new_toc, 2)],
-      ["12", "Against the target", "cemented height − plug height", againstText(r)]];
+      ["9", "Total volume dumped", "full runs × volume per run + last run = " + r.full_runs + " × " + f(r.one_run_lts, 2) + " + " + f(r.last_lts, 2), f(r.total_lts, 2) + " L"],
+      ["10", "Cement column height", "volume dumped ÷ capacity = " + f(r.total_lts, 2) + " ÷ " + f(cp, 3), dep(r.cemented_ft, 2)],
+      ["11", "Theoretical new TOC", "plug bottom − cement column = " + f(fromFt(i.bottom), 2) + " − " + f(fromFt(r.cemented_ft), 2), dep(r.new_toc, 2)],
+      ["12", "Difference to target", "cement column − plug length", againstText(r)]];
     var list = BAILERS.slice(), cur = S.blr === "other" ? S.blrOther : S.blr, mark = -1;
     if (S.blr === "other" && toNum(S.blrOther) != null && BAILERS.indexOf(S.blrOther) < 0) list.push(S.blrOther);
     var cmpRows = [];
@@ -395,22 +395,22 @@
       if (String(b) === String(cur)) mark = cmpRows.length;
       cmpRows.push([f(toIn(toNum(b)), 2) + " in", f(x.one_run_lts, 2) + " L", String(x.total_runs), x.last_ft ? lenText(x.last_ft) : "–", f(x.total_lts, 2) + " L", dep(x.new_toc, 1)]);
     });
-    var s2 = section(2, "Calculations and bailers used", [
+    var s2 = section(2, "Calculations & Bailers Used", [
       sub("Bailer used"),
       grid([["Bailer ID", inch(i.blr)], ["Bailer OD", od != null ? f(od, S.idu === "mm" ? 1 : 3) + " " + S.idu : ""], ["Length per run", lenText(r.run_len)],
-        ["Last run rounded up to", jointText() + " joints"], fit ? ["Passes the restriction", fit, re <= od ? "bad" : ""] : null]),
-      sub("Step by step"),
-      h("p", { cls: "fine", text: "Capacity of a pipe = 158.987 ÷ 1029.45 L per ft per in² of ID (the bailer: 159 ÷ 1029.45). Volumes in litres; depths in " + du() + ". Cement placed from the plug bottom up." }),
+        ["Last-run rounding", "up to " + jointText() + " joints"], fit ? ["Restriction check", fit, re <= od ? "bad" : ""] : null]),
+      sub("Calculation steps"),
+      h("p", { cls: "fine", text: "Capacity = 158.987 ÷ 1029.45 L/ft per in² of ID (bailer: 159 ÷ 1029.45). Volumes in litres, depths in " + du() + ". Cement is placed from the plug bottom upward." }),
       h("div", { cls: "scroll" }, table(["#", "Step", "Working", "Result"], steps, 3)),
-      sub("Bailers compared for this plug"),
+      sub("Bailer comparison"),
       h("div", { cls: "keep" }, h("div", { cls: "scroll" }, table(["Bailer ID", "Per run", "Runs", "Last run", "Dumped", "New TOC"], cmpRows, 1, mark)),
-      h("p", { cls: "fine", text: "Every bailer run " + lenText(r.run_len) + " per run against the same plug; the highlighted row is the bailer used." }))]);
+      h("p", { cls: "fine", text: "All bailers at " + lenText(r.run_len) + " per run for the same plug. Highlighted: the bailer selected for the job." }))]);
 
     // ---- 3. outputs
-    var vols = [["Cement required"].concat(vAll(r.req_lts))];
-    if (r.full_runs) vols.push(["Each full run (" + lenText(r.run_len) + ")"].concat(vAll(r.one_run_lts)));
+    var vols = [["Required volume"].concat(vAll(r.req_lts))];
+    if (r.full_runs) vols.push(["Per full run (" + lenText(r.run_len) + ")"].concat(vAll(r.one_run_lts)));
     if (r.last_ft) vols.push(["Last run (" + lenText(r.last_ft) + ")"].concat(vAll(r.last_lts)));
-    vols.push(["Cement dumped in all"].concat(vAll(r.total_lts)));
+    vols.push(["Total dumped"].concat(vAll(r.total_lts)));
     var sched = [], cum = 0;
     for (var k = 0; k < r.total_runs; k++) {
       var ft = k < r.full_runs ? r.run_len : r.last_ft, l = ft * r.blr_ft; cum += l;
@@ -420,28 +420,28 @@
     for (k = 0; k < dn; k++) ftDone += (k < r.full_runs ? r.one_run_lts : r.last_lts) / r.csg_ft;
     var s3 = section(3, "Outputs", [
       h("div", { cls: "tiles3" },
-        h("div", null, h("small", { text: "Cement required" }), h("b", { text: vol(r.req_lts) })),
-        h("div", null, h("small", { text: "Runs" }), h("b", { text: r.total_runs + (r.total_runs === 1 ? " run" : " runs") })),
-        h("div", null, h("small", { text: "New top of cement" }), h("b", { text: dep(r.new_toc, 1) }))),
-      grid([["Run plan", planText(r, i.blr), "wide"], ["Cemented height", dep(r.cemented_ft, 2)], ["Against the target", againstText(r)]]),
-      sub("Volumes in every unit"),
+        h("div", null, h("small", { text: "Required volume" }), h("b", { text: vol(r.req_lts) })),
+        h("div", null, h("small", { text: "Bailer runs" }), h("b", { text: r.total_runs + (r.total_runs === 1 ? " run" : " runs") })),
+        h("div", null, h("small", { text: "Theoretical TOC" }), h("b", { text: dep(r.new_toc, 1) }))),
+      grid([["Run plan", planText(r, i.blr), "wide"], ["Cement column", dep(r.cemented_ft, 2)], ["Difference to target", againstText(r)]]),
+      sub("Volumes in all units"),
       h("div", { cls: "scroll" }, table(["", "L", "US gal", "bbl", "ft³"], vols, 1)),
       sub("Run schedule"),
-      h("div", { cls: "scroll" }, table(["Run", "Bailer", "Volume L", "Cumulative L", "Cement top after the run"], sched, 1)),
-      S.done ? h("p", { cls: "fine", text: "At the time of this report " + dn + " of " + r.total_runs + " runs were dumped: " + dep(ftDone, 2) + " cemented, theoretical top of cement " + dep(i.bottom - ftDone, 2) + "." }) : null,
-      h("p", { cls: "fine", text: "Theoretical values from the pipe ID. Tag the top of cement after the job to confirm it." })]);
+      h("div", { cls: "scroll" }, table(["Run", "Bailer", "Volume L", "Cumulative L", "TOC after run"], sched, 1)),
+      S.done ? h("p", { cls: "fine", text: "Progress at report time: " + dn + " of " + r.total_runs + " runs dumped, " + dep(ftDone, 2) + " of cement placed, theoretical TOC " + dep(i.bottom - ftDone, 2) + "." }) : null,
+      h("p", { cls: "fine", text: "Note: values are theoretical, based on the nominal ID. Confirm the TOC by tagging after the job." })]);
 
     var now = new Date();
     var sheet = h("article", { cls: "rep" },
       h("header", { cls: "rh" },
-        h("div", null, h("div", { cls: "rk", text: "Dump-bailer cement plug" }), h("h1", { text: "Calculation report" }),
+        h("div", null, h("div", { cls: "rk", text: "Dump bailer cement plug" }), h("h1", { text: "Cement Calculation Report" }),
           h("div", { cls: "rw", text: [J.client, J.well, J.field].filter(Boolean).join(" · ") })),
         h("dl", { cls: "rm" }, h("dt", { text: "Date" }), h("dd", { text: dayText(J.date) || "–" }), h("dt", { text: "Ref" }), h("dd", { text: J.ref || "–" }))),
       s1, s2, s3,
       h("div", { cls: "sign" },
         h("div", null, h("small", { text: "Prepared by" }), h("span", { text: J.by || "" })),
-        h("div", null, h("small", { text: "Checked / approved by" }), h("span"))),
-      h("footer", { cls: "rf", text: "Cement Calc · dump bailer · generated " + now.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) + " " + now.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }) }));
+        h("div", null, h("small", { text: "Reviewed & approved by" }), h("span"))),
+      h("footer", { cls: "rf", text: "Generated with Cement Calc · " + now.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) + " " + now.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }) }));
     var acts = h("div", { cls: "acts noprint" },
       h("button", { cls: "btn", text: "Save as PDF / Print", on: { click: function () { printIt(J); } } }),
       navigator.share ? h("button", { cls: "btn ghost", text: "Share as text", on: { click: function () { shareIt(J, i, r); } } }) : null);
@@ -456,14 +456,14 @@
     setTimeout(done, 4000);
   }
   function shareIt(J, i, r) {
-    var lines = ["CEMENT PLUG - dump bailer", [J.client, J.well, J.field].filter(Boolean).join(" · "), [J.ref, dayText(J.date)].filter(Boolean).join(" · "), "",
+    var lines = ["DUMP BAILER CEMENT PLUG", [J.client, J.well, J.field].filter(Boolean).join(" · "), [J.ref, dayText(J.date)].filter(Boolean).join(" · "), "",
       "Pipe: " + pipeText() + ", ID " + f(i.csg, 3) + " in",
       "Plug: " + dep(i.bottom, 2) + " to " + dep(i.top, 2) + " (" + dep(r.height, 2) + ")",
       "Bailer: " + f(i.blr, 2) + " in ID, " + lenText(r.run_len) + " per run", "",
       "Cement required: " + vAll(r.req_lts).map(function (v, k) { return v + " " + VOL[Object.keys(VOL)[k]][0]; }).join(" · "),
-      "Runs: " + r.total_runs + " = " + planText(r, i.blr),
+      "Bailer runs: " + r.total_runs + " = " + planText(r, i.blr),
       "Dumped: " + f(r.total_lts, 2) + " L (" + f(r.total_lts / L2G, 2) + " gal)",
-      "New TOC: " + dep(r.new_toc, 2) + " (" + againstText(r) + ")",
+      "Theoretical TOC: " + dep(r.new_toc, 2) + " (" + againstText(r) + ")",
       J.by ? "\nBy " + J.by : ""].filter(function (x) { return x !== null; });
     navigator.share({ title: "Cement plug " + (J.well || ""), text: lines.join("\n") }).catch(function () { /* closed */ });
   }

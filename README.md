@@ -30,7 +30,7 @@ API casing 4½" to 20" (OD, lb/ft -> ID) and API 5CT tubing 1.050" to 4½" (comm
 "Other" and type the ID. The ID field is always free to type.
 
 ## Files
-`index.html`, `app.js` (everything), `app.css`, `sw.js` (offline cache `cement-calc-2` - bump it on every change),
+`index.html`, `app.js` (everything), `app.css`, `sw.js` (offline cache `cement-calc-3` - bump it on every change),
 `manifest.webmanifest`, `icon.svg` + `icon-192/512.png`. Host as static files anywhere (HTTPS for the install
 prompt and the offline cache). Live: https://deskmation.github.io/cement-calc/ (GitHub Pages from `main`; `git push` deploys). Local look: the `cement-calc` entry in `../.claude/launch.json` (python http.server
 on :8798).
