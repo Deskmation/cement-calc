@@ -1,5 +1,5 @@
 /* Cement Calc - opens with no signal. Everything is static: the network first, the saved copy when there is none. */
-var C = "cement-calc-4";             /* 16 Oct 2026: the PDF made on the phone */
+var C = "cement-calc-5";             /* 16 Oct 2026: the plug length alone is enough */
 var FILES = ["./", "index.html", "app.js", "app.css", "manifest.webmanifest", "icon.svg", "icon-192.png", "icon-512.png",
   "vendor/jspdf.umd.min.js", "vendor/jspdf.plugin.autotable.min.js"];
 self.addEventListener("install", function (e) {

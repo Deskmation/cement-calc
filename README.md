@@ -12,6 +12,8 @@ how many runs with which dump bailer, and the new top of cement. No server, no s
 - **Which bailer**: every usual bailer ID (1.5 to 3 in, plus a typed one) against the same plug - per-run volume
   and the runs it takes; tap a row to plan with it.
 - **On the job**: count the runs as they go down; the theoretical TOC and the runs left follow.
+- **Plug**: the plug length alone is enough (volume, runs, cement column). Add the plug bottom or the target TOC
+  and the app works out the other depth and the theoretical TOC; bottom + TOC gives the length.
 - Units: depths in ft or m (band toggle), IDs in inches or mm, volumes in all four.
 - **Report** (Generate report, or "Report ›" on the answer card): a calculation report in three sections -
   1 request / job data (client, well, field, request no., unit, date, prepared by, remarks + the well data at the plug),
@@ -31,7 +33,7 @@ API casing 4½" to 20" (OD, lb/ft -> ID) and API 5CT tubing 1.050" to 4½" (comm
 "Other" and type the ID. The ID field is always free to type.
 
 ## Files
-`index.html`, `app.js` (everything), `app.css`, `sw.js` (offline cache `cement-calc-4` - bump it on every change),
+`index.html`, `app.js` (everything), `app.css`, `sw.js` (offline cache `cement-calc-5` - bump it on every change),
 `manifest.webmanifest`, `icon.svg` + `icon-192/512.png`, `vendor/` (jsPDF 2.5.2 + jspdf-autotable 3.8.4, MIT, with their licences). Host as static files anywhere (HTTPS for the install
 prompt and the offline cache). Live: https://deskmation.github.io/cement-calc/ (GitHub Pages from `main`; `git push` deploys). Local look: the `cement-calc` entry in `../.claude/launch.json` (python http.server
 on :8798).

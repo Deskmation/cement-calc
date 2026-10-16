@@ -29,8 +29,8 @@
   // ---- the arithmetic (inputs in ft and inches; the screen converts)
   function calc(csgId, blrId, bottom, top, runLen, joint) {
     var height = bottom - top;
-    if (!(bottom > 0) || !(top >= 0)) return { error: "Type the plug bottom and the new top (or the height)." };
-    if (!(height > 0)) return { error: "The new top must be ABOVE the bottom of the plug." };
+    if (!(bottom > 0) || !(top >= 0)) return { error: "Enter the plug length (or the plug bottom and the target TOC)." };
+    if (!(height > 0)) return { error: "The target TOC must be ABOVE the plug bottom." };
     if (!(csgId > 0)) return { error: "Pick the pipe at the plug, or type its ID." };
     if (!(blrId > 0)) return { error: "Pick the bailer." };
     runLen = runLen > 0 ? runLen : 40; joint = joint > 0 ? joint : 5;
@@ -47,10 +47,14 @@
   // ---- state, saved on the phone
   function load() { try { return JSON.parse(localStorage.getItem(KEY) || "null"); } catch (e) { return null; } }
   function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { /* private window or full */ } }
-  var S = load() || { depth: "ft", idu: "in", vol: "l", kind: "casing", size: "", wt: "", id: "", bottom: "", top: "", blr: "2", blrOther: "", len: "40", lenOther: "", od: "", restr: "", done: 0 };
+  var S = load() || { depth: "ft", idu: "in", vol: "l", kind: "casing", size: "", wt: "", id: "", bottom: "", top: "", blr: "2", blrOther: "", len: "40", lenOther: "", od: "", restr: "", done: 0, plen: "", derived: "" };
   function todayIso() { var d = new Date(), p = function (n) { return (n < 10 ? "0" : "") + n; }; return d.getFullYear() + "-" + p(d.getMonth() + 1) + "-" + p(d.getDate()); }
   function blankJob(keep) { keep = keep || {}; return { client: keep.client || "", well: "", field: "", ref: "", unit: keep.unit || "", date: todayIso(), by: keep.by || "", remarks: "" }; }
   if (!S.job) S.job = blankJob();
+  if (S.plen == null) {                 // saved before the plug length was its own field
+    var b0 = toNum(S.bottom), t0 = toNum(S.top);
+    S.plen = b0 != null && t0 != null ? String(Math.round((b0 - t0) * 100) / 100) : ""; S.derived = S.plen ? "plen" : "";
+  }
   var fromMain = false;                  // the report was opened from the calculator: Back = the browser's back
 
   // ---- DOM helpers: typed text is always text, never HTML
@@ -106,7 +110,9 @@
   function dep(v, d) { return f(fromFt(v), d == null ? 1 : d) + " " + du(); }
   function inputs() {
     var blr = S.blr === "other" ? S.blrOther : S.blr, len = S.len === "other" ? S.lenOther : S.len;
-    return { csg: toIn(toNum(S.id)), blr: toIn(toNum(blr)), bottom: toFt(toNum(S.bottom)), top: toFt(toNum(S.top)),
+    var b = toNum(S.bottom), t = toNum(S.top), L = toNum(S.plen), nd = false;
+    if ((b == null || t == null) && L != null) { b = L; t = 0; nd = true; }     // the length alone: no depths, no TOC
+    return { csg: toIn(toNum(S.id)), blr: toIn(toNum(blr)), bottom: toFt(b), top: toFt(t), nodepth: nd,
       len: toFt(toNum(len)), joint: S.depth === "m" ? 1 / FT : 5 };
   }
 
@@ -170,19 +176,29 @@
       h("label", { cls: "f", "for": "id" }, "ID (free to type)", idIn), idUnit, idHint);
 
     // 2. the plug
-    var bot, top, hgt;
-    function hv() { var b = toNum(S.bottom), t = toNum(S.top); return b != null && t != null ? String(Math.round((b - t) * 100) / 100) : ""; }
-    bot = numIn("bot", du(), S.bottom, function (v) {
-      S.bottom = v; var b = toNum(v), x = toNum(hgt.value);
-      if (b != null && x != null && toNum(S.top) == null) { S.top = String(Math.round((b - x) * 100) / 100); top.value = S.top; }
-      else hgt.value = hv();
+    // any two of bottom / TOC / length give the third (the one the app worked out is S.derived); the length alone is enough
+    var F = {};
+    function r2(x) { return String(Math.round(x * 100) / 100); }
+    function solve(changed) {
+      if (S.derived === changed) S.derived = "";
+      var keys = ["bottom", "top", "plen"].filter(function (k) { return k !== changed; });
+      var target = S.derived && S.derived !== changed ? S.derived
+        : keys.filter(function (k) { return toNum(S[k]) == null; })[0] || (changed === "plen" ? "top" : "plen");
+      var others = ["bottom", "top", "plen"].filter(function (k) { return k !== target; });
+      var b = toNum(S.bottom), t = toNum(S.top), L = toNum(S.plen), v = null;
+      if (others.every(function (k) { return toNum(S[k]) != null; })) v = target === "plen" ? b - t : target === "top" ? b - L : t + L;
+      if (v != null) { S[target] = r2(v); S.derived = target; }
+      else if (S.derived === target) { S[target] = ""; S.derived = ""; }
+      F[target].value = S[target];
       recalc();
-    });
-    top = numIn("top", du(), S.top, function (v) { S.top = v; hgt.value = hv(); recalc(); });
-    hgt = numIn("hgt", du(), hv(), function (v) { var b = toNum(S.bottom), x = toNum(v); if (b != null && x != null) { S.top = String(Math.round((b - x) * 100) / 100); top.value = S.top; } recalc(); });
+    }
+    F.plen = numIn("hgt", du(), S.plen, function (v) { S.plen = v; solve("plen"); });
+    F.bottom = numIn("bot", "optional", S.bottom, function (v) { S.bottom = v; solve("bottom"); });
+    F.top = numIn("top", "optional", S.top, function (v) { S.top = v; solve("top"); });
     var plug = h("div", { cls: "card" }, h("div", { cls: "sec", text: "Plug interval · " + du() }),
-      h("div", { cls: "grid3" }, h("label", { cls: "f", "for": "bot" }, "Plug bottom", bot), h("label", { cls: "f", "for": "top" }, "Target TOC", top), h("label", { cls: "f", "for": "hgt" }, "Plug length", hgt)),
-      h("div", { cls: "hint", text: "Enter the plug bottom and the target TOC, or the bottom and the plug length. Measured depths." }));
+      h("div", { cls: "grid3" }, h("label", { cls: "f", "for": "hgt" }, "Plug length", F.plen), h("label", { cls: "f", "for": "bot" }, "Plug bottom", F.bottom),
+        h("label", { cls: "f", "for": "top" }, "Target TOC", F.top)),
+      h("div", { cls: "hint", text: "The plug length alone is enough. Add the plug bottom or the target TOC to get the theoretical TOC (measured depths)." }));
 
     // 3. the bailer
     var blrOther = numIn("blr", "ID " + S.idu, S.blrOther, function (v) { S.blrOther = v; recalc(); });
@@ -241,7 +257,7 @@
       h("button", { cls: "btn", text: "Generate report", on: { click: openReport } }));
 
     var reset = h("button", { cls: "link", text: "New calculation", on: { click: function () {
-      S = { depth: S.depth, idu: S.idu, vol: S.vol, kind: "casing", size: "", wt: "", id: "", bottom: "", top: "", blr: "2", blrOther: "", len: "40", lenOther: "", od: "", restr: "", done: 0, job: blankJob(S.job) };
+      S = { depth: S.depth, idu: S.idu, vol: S.vol, kind: "casing", size: "", wt: "", id: "", bottom: "", top: "", blr: "2", blrOther: "", len: "40", lenOther: "", od: "", restr: "", done: 0, plen: "", derived: "", job: blankJob(S.job) };
       save(); build();
     } } });
     var foot = h("div", { cls: "foot" }, h("div", { cls: "spread" }, h("span", { text: "Capacity 158.987 / 1029.45 L per ft per in² · the last run rounded up to " + (S.depth === "m" ? "1 m" : "5 ft") + " joints." }), reset),
@@ -260,17 +276,17 @@
       runs.textContent = r.total_runs + (r.total_runs === 1 ? " run" : " runs") + " · " + [r.full_runs ? r.full_runs + " × " + f(fromFt(r.run_len), 0) + " " + du() : "", r.last_ft ? "1 × " + f(fromFt(r.last_ft), S.depth === "m" ? 1 : 0) + " " + du() : ""].filter(Boolean).join(" + ")
         + " of " + f(i.blr, i.blr === Math.round(i.blr * 10) / 10 ? 1 : 2) + "\" bailer";
       volBox.textContent = ""; volBox.appendChild(volAll(r.req_lts));
-      dd(kv, [["Plug interval", dep(r.height) + " in ID " + f(i.csg, 3) + "\"", f(r.csg_ft, 2) + " L per ft of casing / tubing"],
+      dd(kv, [[i.nodepth ? "Plug length" : "Plug interval", dep(r.height) + " in ID " + f(i.csg, 3) + "\"", f(r.csg_ft, 2) + " L per ft of casing / tubing"],
         r.full_runs ? ["Per full run (" + f(fromFt(r.run_len), 0) + " " + du() + ")", vol(r.one_run_lts), "fills " + dep(r.cover_long, 2)] : null,
         r.last_ft ? ["Last run (" + f(fromFt(r.last_ft), S.depth === "m" ? 1 : 0) + " " + du() + ")", vol(r.last_lts), "fills " + dep(r.cover_last, 2)] : null,
         ["Total dumped", vol(r.total_lts), r.total_runs + (r.total_runs === 1 ? " run" : " runs")],
-        ["Cement column", dep(r.cemented_ft, 2), "theoretical TOC " + dep(r.new_toc, 1)],
+        ["Cement column", dep(r.cemented_ft, 2), i.nodepth ? null : "theoretical TOC " + dep(r.new_toc, 1)],
         [r.over_ft >= 0 ? "Excess over target" : "Short of target", S.depth === "m" ? f(Math.abs(r.over_ft) * FT * 100, 0) + " cm" : f(Math.abs(r.over_ft) * 12, 1) + " in"]]);
       fillCmp(i, r);
       var d = Math.min(S.done || 0, r.total_runs), ftDone = 0;
       for (var k = 0; k < d; k++) ftDone += (k < r.full_runs ? r.one_run_lts : r.last_lts) / r.csg_ft;
-      doneLine.textContent = !S.done ? "Count each run as it is dumped to follow the theoretical TOC."
-        : (S.done > r.total_runs ? "⚠ " + S.done + " runs is more than the plan. " : "") + d + " of " + r.total_runs + " dumped · " + dep(ftDone, 2) + " cemented · theoretical TOC " + dep(r.new_toc + (r.cemented_ft - ftDone), 1)
+      doneLine.textContent = !S.done ? (i.nodepth ? "Count each run as it is dumped to follow the cement placed." : "Count each run as it is dumped to follow the theoretical TOC.")
+        : (S.done > r.total_runs ? "⚠ " + S.done + " runs is more than the plan. " : "") + d + " of " + r.total_runs + " dumped · " + dep(ftDone, 2) + " cemented" + (i.nodepth ? "" : " · theoretical TOC " + dep(r.new_toc + (r.cemented_ft - ftDone), 1))
           + (r.total_runs - d > 0 ? " · " + (r.total_runs - d) + " to go" : " · all runs dumped, tag the TOC");
     }
     function fillCmp(i) {
@@ -293,7 +309,7 @@
     function switchDepth(u) {
       if (u === S.depth) return;
       var k = u === "m" ? FT : 1 / FT, cv = function (s) { var n = toNum(s); return n == null ? "" : String(Math.round(n * k * 100) / 100); };
-      S.bottom = cv(S.bottom); S.top = cv(S.top); S.lenOther = cv(S.lenOther);
+      S.bottom = cv(S.bottom); S.top = cv(S.top); S.plen = cv(S.plen); S.lenOther = cv(S.lenOther);
       if (S.len !== "other") S.len = { "20": "6", "30": "9", "40": "12", "60": "18", "6": "20", "9": "30", "12": "40", "18": "60" }[S.len] || S.len;
       S.depth = u; save(); build();
     }
@@ -329,7 +345,7 @@
   }
   function againstText(r) {
     var x = Math.abs(r.over_ft), t = S.depth === "m" ? f(x * FT * 100, 0) + " cm" : f(x * 12, 1) + " in";
-    return t + (r.over_ft >= 0 ? " above target TOC" : " below target TOC (short)");
+    return t + (inputs().nodepth ? (r.over_ft >= 0 ? " over the plug length" : " short of the plug length") : (r.over_ft >= 0 ? " above target TOC" : " below target TOC (short)"));
   }
   // the report's content, once: the screen sheet and the PDF file are both drawn from this
   function reportData() {
@@ -346,7 +362,7 @@
     // 1. request / job data
     D.job = [["Client", J.client], ["Well", J.well], ["Field / area", J.field], ["Request / job no.", J.ref],
       ["Unit / rig", J.unit], ["Date", dayText(J.date)], ["Prepared by", J.by]];
-    D.well = [["Casing / tubing", pipeText()], ["Pipe ID", inch(i.csg)], ["Plug bottom", dep(i.bottom, 2)], ["Target TOC", dep(i.top, 2)],
+    D.well = [["Casing / tubing", pipeText()], ["Pipe ID", inch(i.csg)], ["Plug bottom", i.nodepth ? "not given" : dep(i.bottom, 2)], ["Target TOC", i.nodepth ? "not given" : dep(i.top, 2)],
       ["Plug length", dep(r.height, 2)], ["Min. restriction above plug", re != null ? f(re, S.idu === "mm" ? 1 : 3) + " " + S.idu : ""]];
     D.remarks = J.remarks || "";
     // 2. calculations and bailers used
@@ -365,7 +381,8 @@
       ["8", "Last run volume", "last run × bailer capacity = " + f(fromFt(r.last_ft), 2) + " × " + f(cb, 3), f(r.last_lts, 2) + " L"],
       ["9", "Total volume dumped", "full runs × volume per run + last run = " + r.full_runs + " × " + f(r.one_run_lts, 2) + " + " + f(r.last_lts, 2), f(r.total_lts, 2) + " L"],
       ["10", "Cement column height", "volume dumped ÷ capacity = " + f(r.total_lts, 2) + " ÷ " + f(cp, 3), dep(r.cemented_ft, 2)],
-      ["11", "Theoretical new TOC", "plug bottom − cement column = " + f(fromFt(i.bottom), 2) + " − " + f(fromFt(r.cemented_ft), 2), dep(r.new_toc, 2)],
+      i.nodepth ? ["11", "Theoretical new TOC", "plug bottom not given", "–"]
+        : ["11", "Theoretical new TOC", "plug bottom − cement column = " + f(fromFt(i.bottom), 2) + " − " + f(fromFt(r.cemented_ft), 2), dep(r.new_toc, 2)],
       ["12", "Difference to target", "cement column − plug length", againstText(r)]];
     var list = BAILERS.slice(), cur = S.blr === "other" ? S.blrOther : S.blr, mark = -1, cmpRows = [];
     if (S.blr === "other" && toNum(S.blrOther) != null && BAILERS.indexOf(S.blrOther) < 0) list.push(S.blrOther);
@@ -373,12 +390,12 @@
       var x = calc(i.csg, toIn(toNum(b)), i.bottom, i.top, i.len, i.joint);
       if (x.error) return;
       if (String(b) === String(cur)) mark = cmpRows.length;
-      cmpRows.push([f(toIn(toNum(b)), 2) + " in", f(x.one_run_lts, 2) + " L", String(x.total_runs), x.last_ft ? lenText(x.last_ft) : "–", f(x.total_lts, 2) + " L", dep(x.new_toc, 1)]);
+      cmpRows.push([f(toIn(toNum(b)), 2) + " in", f(x.one_run_lts, 2) + " L", String(x.total_runs), x.last_ft ? lenText(x.last_ft) : "–", f(x.total_lts, 2) + " L", i.nodepth ? dep(x.cemented_ft, 2) : dep(x.new_toc, 1)]);
     });
-    D.cmp = { head: ["Bailer ID", "Per run", "Runs", "Last run", "Dumped", "New TOC"], rows: cmpRows, mark: mark,
+    D.cmp = { head: ["Bailer ID", "Per run", "Runs", "Last run", "Dumped", i.nodepth ? "Cement column" : "New TOC"], rows: cmpRows, mark: mark,
       note: "All bailers at " + lenText(r.run_len) + " per run for the same plug. Highlighted: the bailer selected for the job." };
     // 3. outputs
-    D.tiles = [["Required volume", vol(r.req_lts)], ["Bailer runs", r.total_runs + (r.total_runs === 1 ? " run" : " runs")], ["Theoretical TOC", dep(r.new_toc, 1)]];
+    D.tiles = [["Required volume", vol(r.req_lts)], ["Bailer runs", r.total_runs + (r.total_runs === 1 ? " run" : " runs")], i.nodepth ? ["Cement column", dep(r.cemented_ft, 2)] : ["Theoretical TOC", dep(r.new_toc, 1)]];
     D.out = [["Run plan", planText(r, i.blr), "wide"], ["Cement column", dep(r.cemented_ft, 2)], ["Difference to target", againstText(r)]];
     var vols = [["Required volume"].concat(vAll(r.req_lts))];
     if (r.full_runs) vols.push(["Per full run (" + lenText(r.run_len) + ")"].concat(vAll(r.one_run_lts)));
@@ -388,12 +405,12 @@
     var sched = [], cum = 0, k;
     for (k = 0; k < r.total_runs; k++) {
       var ft = k < r.full_runs ? r.run_len : r.last_ft, l = ft * r.blr_ft; cum += l;
-      sched.push([String(k + 1), lenText(ft), f(l, 2), f(cum, 2), dep(i.bottom - cum / r.csg_ft, 2)]);
+      sched.push([String(k + 1), lenText(ft), f(l, 2), f(cum, 2), i.nodepth ? dep(cum / r.csg_ft, 2) : dep(i.bottom - cum / r.csg_ft, 2)]);
     }
-    D.sched = { head: ["Run", "Bailer", "Volume L", "Cumulative L", "TOC after run"], rows: sched };
+    D.sched = { head: ["Run", "Bailer", "Volume L", "Cumulative L", i.nodepth ? "Cement column" : "TOC after run"], rows: sched };
     var dn = Math.min(S.done || 0, r.total_runs), ftDone = 0;
     for (k = 0; k < dn; k++) ftDone += (k < r.full_runs ? r.one_run_lts : r.last_lts) / r.csg_ft;
-    D.progress = S.done ? "Progress at report time: " + dn + " of " + r.total_runs + " runs dumped, " + dep(ftDone, 2) + " of cement placed, theoretical TOC " + dep(i.bottom - ftDone, 2) + "." : "";
+    D.progress = S.done ? "Progress at report time: " + dn + " of " + r.total_runs + " runs dumped, " + dep(ftDone, 2) + " of cement placed" + (i.nodepth ? "." : ", theoretical TOC " + dep(i.bottom - ftDone, 2) + ".") : "";
     D.note = "Note: values are theoretical, based on the nominal ID. Confirm the TOC by tagging after the job.";
     D.by = J.by || "";
     D.generated = "Generated with Cement Calc · " + now.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) + " " + now.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
@@ -628,12 +645,12 @@
   function shareIt(J, i, r) {
     var lines = ["DUMP BAILER CEMENT PLUG", [J.client, J.well, J.field].filter(Boolean).join(" · "), [J.ref, dayText(J.date)].filter(Boolean).join(" · "), "",
       "Pipe: " + pipeText() + ", ID " + f(i.csg, 3) + " in",
-      "Plug: " + dep(i.bottom, 2) + " to " + dep(i.top, 2) + " (" + dep(r.height, 2) + ")",
+      i.nodepth ? "Plug length: " + dep(r.height, 2) : "Plug: " + dep(i.bottom, 2) + " to " + dep(i.top, 2) + " (" + dep(r.height, 2) + ")",
       "Bailer: " + f(i.blr, 2) + " in ID, " + lenText(r.run_len) + " per run", "",
       "Cement required: " + vAll(r.req_lts).map(function (v, k) { return v + " " + VOL[Object.keys(VOL)[k]][0]; }).join(" · "),
       "Bailer runs: " + r.total_runs + " = " + planText(r, i.blr),
       "Dumped: " + f(r.total_lts, 2) + " L (" + f(r.total_lts / L2G, 2) + " gal)",
-      "Theoretical TOC: " + dep(r.new_toc, 2) + " (" + againstText(r) + ")",
+      i.nodepth ? "Cement column: " + dep(r.cemented_ft, 2) + " (" + againstText(r) + ")" : "Theoretical TOC: " + dep(r.new_toc, 2) + " (" + againstText(r) + ")",
       J.by ? "\nBy " + J.by : ""].filter(function (x) { return x !== null; });
     navigator.share({ title: "Cement plug " + (J.well || ""), text: lines.join("\n") }).catch(function () { /* closed */ });
   }
