@@ -17,8 +17,9 @@ how many runs with which dump bailer, and the new top of cement. No server, no s
   1 request / job data (client, well, field, request no., unit, date, prepared by, remarks + the well data at the plug),
   2 calculations and bailers used (the bailer, every step of the arithmetic with its numbers, all bailers compared),
   3 outputs (cement required, runs, new TOC, volumes in every unit, the run schedule with the cement top after each run).
-  "Save as PDF / Print" uses the phone's print (Save as PDF there, A4); "Share as text" sends a summary where the
-  phone offers sharing. The job data is kept on the phone with the calculation.
+  "Save PDF" builds the A4 PDF on the phone itself (jsPDF, works offline) and saves it to Downloads; "Share PDF"
+  sends the file through the phone's share menu (WhatsApp, email, Drive); "Share as text" sends a summary; "Print"
+  is still there for printers. The job data is kept on the phone with the calculation.
 
 ## The arithmetic
 The dump-bailer CALC_MASTER sheet's: pipe capacity 158.987 / 1029.45 L per ft per in² of ID (bailer 159 / 1029.45),
@@ -30,8 +31,8 @@ API casing 4½" to 20" (OD, lb/ft -> ID) and API 5CT tubing 1.050" to 4½" (comm
 "Other" and type the ID. The ID field is always free to type.
 
 ## Files
-`index.html`, `app.js` (everything), `app.css`, `sw.js` (offline cache `cement-calc-3` - bump it on every change),
-`manifest.webmanifest`, `icon.svg` + `icon-192/512.png`. Host as static files anywhere (HTTPS for the install
+`index.html`, `app.js` (everything), `app.css`, `sw.js` (offline cache `cement-calc-4` - bump it on every change),
+`manifest.webmanifest`, `icon.svg` + `icon-192/512.png`, `vendor/` (jsPDF 2.5.2 + jspdf-autotable 3.8.4, MIT, with their licences). Host as static files anywhere (HTTPS for the install
 prompt and the offline cache). Live: https://deskmation.github.io/cement-calc/ (GitHub Pages from `main`; `git push` deploys). Local look: the `cement-calc` entry in `../.claude/launch.json` (python http.server
 on :8798).
 

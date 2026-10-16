@@ -86,6 +86,9 @@ textarea.in { resize: vertical; font-size: 15px; }
 .band .back { border: 0; background: rgba(255, 255, 255, .14); color: #fff; width: 34px; height: 34px; border-radius: 10px; font-size: 18px; cursor: pointer; flex: none; }
 .acts { display: flex; gap: 8px; }
 .acts .btn { flex: 1; }
+.acts .btn[disabled] { opacity: .6; cursor: default; }
+.pdfmsg:empty { display: none; }
+.pdfmsg { padding: 0 2px; }
 
 /* the report (16 Oct 2026): a paper sheet - white and dark ink in dark mode too, A4 when printed */
 .rep { background: #fff; color: #17212a; border-radius: 8px; padding: 18px 16px 14px; border: 1px solid var(--line);
