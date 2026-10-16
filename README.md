@@ -13,6 +13,12 @@ how many runs with which dump bailer, and the new top of cement. No server, no s
   and the runs it takes; tap a row to plan with it.
 - **On the job**: count the runs as they go down; the theoretical TOC and the runs left follow.
 - Units: depths in ft or m (band toggle), IDs in inches or mm, volumes in all four.
+- **Report** (Generate report, or "Report ›" on the answer card): a calculation report in three sections -
+  1 request / job data (client, well, field, request no., unit, date, prepared by, remarks + the well data at the plug),
+  2 calculations and bailers used (the bailer, every step of the arithmetic with its numbers, all bailers compared),
+  3 outputs (cement required, runs, new TOC, volumes in every unit, the run schedule with the cement top after each run).
+  "Save as PDF / Print" uses the phone's print (Save as PDF there, A4); "Share as text" sends a summary where the
+  phone offers sharing. The job data is kept on the phone with the calculation.
 
 ## The arithmetic
 The dump-bailer CALC_MASTER sheet's: pipe capacity 158.987 / 1029.45 L per ft per in² of ID (bailer 159 / 1029.45),
@@ -24,7 +30,7 @@ API casing 4½" to 20" (OD, lb/ft -> ID) and API 5CT tubing 1.050" to 4½" (comm
 "Other" and type the ID. The ID field is always free to type.
 
 ## Files
-`index.html`, `app.js` (everything), `app.css`, `sw.js` (offline cache `cement-calc-1` - bump it on every change),
+`index.html`, `app.js` (everything), `app.css`, `sw.js` (offline cache `cement-calc-2` - bump it on every change),
 `manifest.webmanifest`, `icon.svg` + `icon-192/512.png`. Host as static files anywhere (HTTPS for the install
 prompt and the offline cache). Live: https://deskmation.github.io/cement-calc/ (GitHub Pages from `main`; `git push` deploys). Local look: the `cement-calc` entry in `../.claude/launch.json` (python http.server
 on :8798).

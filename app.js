@@ -48,6 +48,10 @@
   function load() { try { return JSON.parse(localStorage.getItem(KEY) || "null"); } catch (e) { return null; } }
   function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { /* private window or full */ } }
   var S = load() || { depth: "ft", idu: "in", vol: "l", kind: "casing", size: "", wt: "", id: "", bottom: "", top: "", blr: "2", blrOther: "", len: "40", lenOther: "", od: "", restr: "", done: 0 };
+  function todayIso() { var d = new Date(), p = function (n) { return (n < 10 ? "0" : "") + n; }; return d.getFullYear() + "-" + p(d.getMonth() + 1) + "-" + p(d.getDate()); }
+  function blankJob(keep) { keep = keep || {}; return { client: keep.client || "", well: "", field: "", ref: "", unit: keep.unit || "", date: todayIso(), by: keep.by || "", remarks: "" }; }
+  if (!S.job) S.job = blankJob();
+  var fromMain = false;                  // the report was opened from the calculator: Back = the browser's back
 
   // ---- DOM helpers: typed text is always text, never HTML
   function h(tag, attrs) {
@@ -116,7 +120,8 @@
     // the answer
     var big = h("div", { cls: "big" }), runs = h("div", { cls: "runs" }), kv = h("dl", { cls: "kv" }), volBox = h("div"), wait = h("div", { cls: "wait" });
     var volChips = chipRow(Object.keys(VOL).map(function (k) { return [k, VOL[k][1]]; }), S.vol, function (k) { S.vol = k; recalc(); });
-    var res = h("div", { cls: "card res" }, h("div", { cls: "sec", text: "Cement needed" }), wait, big, runs, h("div", { cls: "sec", text: "in every unit" }), volBox, volChips, kv);
+    var res = h("div", { cls: "card res" }, h("div", { cls: "spread" }, h("div", { cls: "sec", text: "Cement needed" }),
+      h("button", { cls: "link", text: "Report ›", on: { click: openReport } })), wait, big, runs, h("div", { cls: "sec", text: "in every unit" }), volBox, volChips, kv);
 
     // 1. the pipe at the plug
     var sizeSel = h("select", { cls: "in", id: "sz" }), wtSel = h("select", { cls: "in", id: "wt" });
@@ -215,8 +220,28 @@
       h("div", { cls: "cnt" }, h("button", { cls: "btn ghost sm", text: "−", "aria-label": "one run less", on: { click: function () { bump(-1); } } }),
         h("span", { cls: "lab" }, "runs dumped ", doneN), h("button", { cls: "btn sm", text: "+ 1 run", on: { click: function () { bump(1); } } })), doneLine);
 
+    // 6. the job, for the report (section 1 of the report)
+    function txt(id, key, lab, attrs) {
+      var a = { cls: "in", id: id, type: "text", autocomplete: "off" }, k;
+      for (k in (attrs || {})) a[k] = attrs[k];
+      var area = a.type === "area";
+      if (area) delete a.type;
+      var el = h(area ? "textarea" : "input", a);
+      el.value = S.job[key] || "";
+      el.addEventListener("input", function () { S.job[key] = el.value; save(); });
+      return h("label", { cls: "f", "for": id }, lab, el);
+    }
+    var job = h("div", { cls: "card" }, h("div", { cls: "sec", text: "Job data · for the report" }),
+      h("div", { cls: "grid2" },
+        txt("j-client", "client", "Client"), txt("j-well", "well", "Well", { autocapitalize: "characters" }),
+        txt("j-field", "field", "Field / area"), txt("j-ref", "ref", "Request / job no."),
+        txt("j-unit", "unit", "Unit / rig"), txt("j-date", "date", "Date", { type: "date" })),
+      txt("j-by", "by", "Prepared by", { autocapitalize: "words" }),
+      txt("j-rem", "remarks", "Remarks", { type: "area", rows: "2", placeholder: "anything the report should say" }),
+      h("button", { cls: "btn", text: "Generate report", on: { click: openReport } }));
+
     var reset = h("button", { cls: "link", text: "Start again", on: { click: function () {
-      S = { depth: S.depth, idu: S.idu, vol: S.vol, kind: "casing", size: "", wt: "", id: "", bottom: "", top: "", blr: "2", blrOther: "", len: "40", lenOther: "", od: "", restr: "", done: 0 };
+      S = { depth: S.depth, idu: S.idu, vol: S.vol, kind: "casing", size: "", wt: "", id: "", bottom: "", top: "", blr: "2", blrOther: "", len: "40", lenOther: "", od: "", restr: "", done: 0, job: blankJob(S.job) };
       save(); build();
     } } });
     var foot = h("div", { cls: "foot" }, h("div", { cls: "spread" }, h("span", { text: "Capacity 158.987 / 1029.45 L per ft per in² · the last run rounded up to " + (S.depth === "m" ? "1 m" : "5 ft") + " joints." }), reset),
@@ -272,10 +297,180 @@
       if (S.len !== "other") S.len = { "20": "6", "30": "9", "40": "12", "60": "18", "6": "20", "9": "30", "12": "40", "18": "60" }[S.len] || S.len;
       S.depth = u; save(); build();
     }
-    add(app, [band, res, pipe, plug, bailer, cmp, onjob, foot]);
+    add(app, [band, res, pipe, plug, bailer, cmp, onjob, job, foot]);
     recalc();
   }
-  build();
+
+  // ---- THE REPORT (16 Oct 2026): three sections - 1 the request / job data, 2 the calculations and the bailers used,
+  // 3 the outputs. A paper sheet on screen; "Save as PDF / Print" uses the phone's own print (Save as PDF there).
+  function openReport() { fromMain = true; location.hash = "report"; }
+  function backToCalc() {
+    if (fromMain) { fromMain = false; history.back(); return; }
+    history.replaceState(null, "", location.pathname + location.search); render();
+  }
+  function pipeText() {
+    var t = S.kind === "tubing" ? TUBING : S.kind === "casing" ? CASING : {}, sz = LABEL[S.size] || S.size + "\"";
+    if (t[S.size] && S.wt) return sz + " " + S.kind + ", " + S.wt + " lb/ft";
+    if (t[S.size]) return sz + " " + S.kind + " (ID typed)";
+    return S.kind === "other" ? "Other pipe (ID typed)" : S.kind.charAt(0).toUpperCase() + S.kind.slice(1) + " (ID typed)";
+  }
+  function dayText(iso) {
+    if (!iso) return "";
+    var d = new Date(iso + "T00:00:00");
+    return isNaN(d) ? iso : d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+  }
+  function inch(v) { return f(v, 3) + " in (" + f(v * IN, 1) + " mm)"; }
+  function vAll(l) { return Object.keys(VOL).map(function (k) { return f(l / VOL[k][2], k === "bbl" ? 3 : 2); }); }
+  function jointText() { return S.depth === "m" ? "1 m" : "5 ft"; }
+  function lenText(ft) { return f(fromFt(ft), S.depth === "m" ? 1 : 0) + " " + du(); }
+  function planText(r, blr) {
+    return [r.full_runs ? r.full_runs + " × " + lenText(r.run_len) : "", r.last_ft ? "1 × " + lenText(r.last_ft) : ""].filter(Boolean).join(" + ")
+      + " of the " + f(blr, 2) + " in bailer";
+  }
+  function againstText(r) {
+    var x = Math.abs(r.over_ft), t = S.depth === "m" ? f(x * FT * 100, 0) + " cm" : f(x * 12, 1) + " in";
+    return t + (r.over_ft >= 0 ? " above the target top" : " short of the target top");
+  }
+  function buildReport() {
+    app.textContent = "";
+    var i = inputs(), r = calc(i.csg, i.blr, i.bottom, i.top, i.len, i.joint), J = S.job || blankJob();
+    var bar = h("div", { cls: "band noprint" },
+      h("button", { cls: "back", "aria-label": "Back to the calculator", text: "‹", on: { click: backToCalc } }),
+      h("h1", null, "Report", h("span", { cls: "sub", text: [J.well, dayText(J.date)].filter(Boolean).join(" · ") || "dump-bailer cement plug" })));
+    if (r.error) {
+      add(app, [bar, h("div", { cls: "card" }, h("div", { cls: "note", text: "The report needs a finished calculation. " + r.error }),
+        h("button", { cls: "btn", text: "Back to the calculator", on: { click: backToCalc } }))]);
+      return;
+    }
+    var dk = S.depth === "m" ? FT : 1;                          // ft -> the depth unit on screen
+    var cp = r.csg_ft / dk, cb = r.blr_ft / dk, Kp = CASING_K / dk, Kb = BAILER_K / dk, perDu = "L/" + du();
+    var runsFrac = r.req_lts / r.one_run_lts, lastTheo = (runsFrac - r.full_runs) * r.run_len;
+    var od = toNum(S.od), re = toNum(S.restr);
+
+    function section(n, title, kids) { return h("section", { cls: "rs" }, h("h2", null, h("span", { cls: "no", text: String(n) }), title), kids); }
+    function sub(t) { return h("h3", { text: t }); }
+    function grid(pairs) {
+      return h("dl", { cls: "rg" }, pairs.filter(Boolean).map(function (p) {
+        return h("div", { cls: p[2] || "" }, h("dt", { text: p[0] }), h("dd", { text: p[1] == null || p[1] === "" ? "–" : String(p[1]) }));
+      }));
+    }
+    function table(head, rows, numFrom, mark) {
+      return h("table", { cls: "rt" },
+        h("thead", null, h("tr", null, head.map(function (x, k) { return h("th", { cls: k >= numFrom ? "n" : "", text: x }); }))),
+        h("tbody", null, rows.map(function (row, ri) {
+          return h("tr", { cls: ri === mark ? "on" : "" }, row.map(function (x, k) { return h("td", { cls: k >= numFrom ? "n" : "", text: String(x) }); }));
+        })));
+    }
+
+    // ---- 1. request / job data
+    var s1 = section(1, "Request / job data", [
+      grid([["Client", J.client], ["Well", J.well], ["Field / area", J.field], ["Request / job no.", J.ref],
+        ["Unit / rig", J.unit], ["Date", dayText(J.date)], ["Prepared by", J.by]]),
+      sub("Well data at the plug"),
+      grid([["Pipe at the plug", pipeText()], ["Pipe ID", inch(i.csg)], ["Plug bottom", dep(i.bottom, 2)], ["Target top of cement", dep(i.top, 2)],
+        ["Plug height", dep(r.height, 2)], ["Restriction above the plug", re != null ? f(re, S.idu === "mm" ? 1 : 3) + " " + S.idu : ""]]),
+      J.remarks ? h("p", { cls: "rem" }, h("b", { text: "Remarks: " }), J.remarks) : null]);
+
+    // ---- 2. calculations and bailers used
+    var fit = od != null && re != null ? (re <= od ? "NO - the " + od + " " + S.idu + " OD does not pass the " + re + " " + S.idu + " restriction" : "Yes - " + od + " " + S.idu + " OD through " + re + " " + S.idu) : "";
+    var steps = [
+      ["1", "Pipe capacity", f(Kp, 6) + " × ID² = " + f(Kp, 6) + " × " + f(i.csg, 3) + "²", f(cp, 3) + " " + perDu],
+      ["2", "Bailer capacity", f(Kb, 6) + " × ID² = " + f(Kb, 6) + " × " + f(i.blr, 3) + "²", f(cb, 3) + " " + perDu],
+      ["3", "Cement required", "plug height × pipe capacity = " + f(fromFt(r.height), 2) + " × " + f(cp, 3), f(r.req_lts, 2) + " L"],
+      ["4", "One full run", "run length × bailer capacity = " + f(fromFt(r.run_len), 2) + " × " + f(cb, 3), f(r.one_run_lts, 2) + " L"],
+      ["5", "Runs needed", "required ÷ one run = " + f(r.req_lts, 2) + " ÷ " + f(r.one_run_lts, 2), f(runsFrac, 3)],
+      ["6", "Full runs", "whole number of step 5", String(r.full_runs)],
+      ["7", "Last run", "(" + f(runsFrac, 3) + " − " + r.full_runs + ") × " + f(fromFt(r.run_len), 2) + " = " + f(fromFt(lastTheo), 2) + " " + du() + ", up to whole " + jointText() + " joints", r.last_ft ? lenText(r.last_ft) : "none"],
+      ["8", "Last run volume", "last run × bailer capacity = " + f(fromFt(r.last_ft), 2) + " × " + f(cb, 3), f(r.last_lts, 2) + " L"],
+      ["9", "Cement dumped", "full runs × one run + last run = " + r.full_runs + " × " + f(r.one_run_lts, 2) + " + " + f(r.last_lts, 2), f(r.total_lts, 2) + " L"],
+      ["10", "Cemented height", "dumped ÷ pipe capacity = " + f(r.total_lts, 2) + " ÷ " + f(cp, 3), dep(r.cemented_ft, 2)],
+      ["11", "New top of cement", "plug bottom − cemented height = " + f(fromFt(i.bottom), 2) + " − " + f(fromFt(r.cemented_ft), 2), dep(r.new_toc, 2)],
+      ["12", "Against the target", "cemented height − plug height", againstText(r)]];
+    var list = BAILERS.slice(), cur = S.blr === "other" ? S.blrOther : S.blr, mark = -1;
+    if (S.blr === "other" && toNum(S.blrOther) != null && BAILERS.indexOf(S.blrOther) < 0) list.push(S.blrOther);
+    var cmpRows = [];
+    list.forEach(function (b) {
+      var x = calc(i.csg, toIn(toNum(b)), i.bottom, i.top, i.len, i.joint);
+      if (x.error) return;
+      if (String(b) === String(cur)) mark = cmpRows.length;
+      cmpRows.push([f(toIn(toNum(b)), 2) + " in", f(x.one_run_lts, 2) + " L", String(x.total_runs), x.last_ft ? lenText(x.last_ft) : "–", f(x.total_lts, 2) + " L", dep(x.new_toc, 1)]);
+    });
+    var s2 = section(2, "Calculations and bailers used", [
+      sub("Bailer used"),
+      grid([["Bailer ID", inch(i.blr)], ["Bailer OD", od != null ? f(od, S.idu === "mm" ? 1 : 3) + " " + S.idu : ""], ["Length per run", lenText(r.run_len)],
+        ["Last run rounded up to", jointText() + " joints"], fit ? ["Passes the restriction", fit, re <= od ? "bad" : ""] : null]),
+      sub("Step by step"),
+      h("p", { cls: "fine", text: "Capacity of a pipe = 158.987 ÷ 1029.45 L per ft per in² of ID (the bailer: 159 ÷ 1029.45). Volumes in litres; depths in " + du() + ". Cement placed from the plug bottom up." }),
+      h("div", { cls: "scroll" }, table(["#", "Step", "Working", "Result"], steps, 3)),
+      sub("Bailers compared for this plug"),
+      h("div", { cls: "keep" }, h("div", { cls: "scroll" }, table(["Bailer ID", "Per run", "Runs", "Last run", "Dumped", "New TOC"], cmpRows, 1, mark)),
+      h("p", { cls: "fine", text: "Every bailer run " + lenText(r.run_len) + " per run against the same plug; the highlighted row is the bailer used." }))]);
+
+    // ---- 3. outputs
+    var vols = [["Cement required"].concat(vAll(r.req_lts))];
+    if (r.full_runs) vols.push(["Each full run (" + lenText(r.run_len) + ")"].concat(vAll(r.one_run_lts)));
+    if (r.last_ft) vols.push(["Last run (" + lenText(r.last_ft) + ")"].concat(vAll(r.last_lts)));
+    vols.push(["Cement dumped in all"].concat(vAll(r.total_lts)));
+    var sched = [], cum = 0;
+    for (var k = 0; k < r.total_runs; k++) {
+      var ft = k < r.full_runs ? r.run_len : r.last_ft, l = ft * r.blr_ft; cum += l;
+      sched.push([String(k + 1), lenText(ft), f(l, 2), f(cum, 2), dep(i.bottom - cum / r.csg_ft, 2)]);
+    }
+    var dn = Math.min(S.done || 0, r.total_runs), ftDone = 0;
+    for (k = 0; k < dn; k++) ftDone += (k < r.full_runs ? r.one_run_lts : r.last_lts) / r.csg_ft;
+    var s3 = section(3, "Outputs", [
+      h("div", { cls: "tiles3" },
+        h("div", null, h("small", { text: "Cement required" }), h("b", { text: vol(r.req_lts) })),
+        h("div", null, h("small", { text: "Runs" }), h("b", { text: r.total_runs + (r.total_runs === 1 ? " run" : " runs") })),
+        h("div", null, h("small", { text: "New top of cement" }), h("b", { text: dep(r.new_toc, 1) }))),
+      grid([["Run plan", planText(r, i.blr), "wide"], ["Cemented height", dep(r.cemented_ft, 2)], ["Against the target", againstText(r)]]),
+      sub("Volumes in every unit"),
+      h("div", { cls: "scroll" }, table(["", "L", "US gal", "bbl", "ft³"], vols, 1)),
+      sub("Run schedule"),
+      h("div", { cls: "scroll" }, table(["Run", "Bailer", "Volume L", "Cumulative L", "Cement top after the run"], sched, 1)),
+      S.done ? h("p", { cls: "fine", text: "At the time of this report " + dn + " of " + r.total_runs + " runs were dumped: " + dep(ftDone, 2) + " cemented, theoretical top of cement " + dep(i.bottom - ftDone, 2) + "." }) : null,
+      h("p", { cls: "fine", text: "Theoretical values from the pipe ID. Tag the top of cement after the job to confirm it." })]);
+
+    var now = new Date();
+    var sheet = h("article", { cls: "rep" },
+      h("header", { cls: "rh" },
+        h("div", null, h("div", { cls: "rk", text: "Dump-bailer cement plug" }), h("h1", { text: "Calculation report" }),
+          h("div", { cls: "rw", text: [J.client, J.well, J.field].filter(Boolean).join(" · ") })),
+        h("dl", { cls: "rm" }, h("dt", { text: "Date" }), h("dd", { text: dayText(J.date) || "–" }), h("dt", { text: "Ref" }), h("dd", { text: J.ref || "–" }))),
+      s1, s2, s3,
+      h("div", { cls: "sign" },
+        h("div", null, h("small", { text: "Prepared by" }), h("span", { text: J.by || "" })),
+        h("div", null, h("small", { text: "Checked / approved by" }), h("span"))),
+      h("footer", { cls: "rf", text: "Cement Calc · dump bailer · generated " + now.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) + " " + now.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }) }));
+    var acts = h("div", { cls: "acts noprint" },
+      h("button", { cls: "btn", text: "Save as PDF / Print", on: { click: function () { printIt(J); } } }),
+      navigator.share ? h("button", { cls: "btn ghost", text: "Share as text", on: { click: function () { shareIt(J, i, r); } } }) : null);
+    add(app, [bar, acts, sheet, h("div", { cls: "acts noprint" }, h("button", { cls: "btn ghost", text: "Back to the calculator", on: { click: backToCalc } }))]);
+  }
+  function printIt(J) {
+    var old = document.title;
+    document.title = ["Cement report", J.well, J.ref, J.date].filter(Boolean).join(" - ");
+    var done = function () { document.title = old; window.removeEventListener("afterprint", done); };
+    window.addEventListener("afterprint", done);
+    window.print();
+    setTimeout(done, 4000);
+  }
+  function shareIt(J, i, r) {
+    var lines = ["CEMENT PLUG - dump bailer", [J.client, J.well, J.field].filter(Boolean).join(" · "), [J.ref, dayText(J.date)].filter(Boolean).join(" · "), "",
+      "Pipe: " + pipeText() + ", ID " + f(i.csg, 3) + " in",
+      "Plug: " + dep(i.bottom, 2) + " to " + dep(i.top, 2) + " (" + dep(r.height, 2) + ")",
+      "Bailer: " + f(i.blr, 2) + " in ID, " + lenText(r.run_len) + " per run", "",
+      "Cement required: " + vAll(r.req_lts).map(function (v, k) { return v + " " + VOL[Object.keys(VOL)[k]][0]; }).join(" · "),
+      "Runs: " + r.total_runs + " = " + planText(r, i.blr),
+      "Dumped: " + f(r.total_lts, 2) + " L (" + f(r.total_lts / L2G, 2) + " gal)",
+      "New TOC: " + dep(r.new_toc, 2) + " (" + againstText(r) + ")",
+      J.by ? "\nBy " + J.by : ""].filter(function (x) { return x !== null; });
+    navigator.share({ title: "Cement plug " + (J.well || ""), text: lines.join("\n") }).catch(function () { /* closed */ });
+  }
+
+  function render() { if (location.hash === "#report") buildReport(); else build(); window.scrollTo(0, 0); }
+  window.addEventListener("hashchange", render);
+  render();
   if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(function () {});
   window.__cc = { calc: calc, CASING: CASING, TUBING: TUBING };   // for the tests
 })();

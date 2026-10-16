@@ -1,5 +1,5 @@
 /* Cement Calc - opens with no signal. Everything is static: the network first, the saved copy when there is none. */
-var C = "cement-calc-1";
+var C = "cement-calc-2";             /* 16 Oct 2026: the report */
 var FILES = ["./", "index.html", "app.js", "app.css", "manifest.webmanifest", "icon.svg", "icon-192.png", "icon-512.png"];
 self.addEventListener("install", function (e) {
   self.skipWaiting();
